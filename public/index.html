@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Meelad Program - Register</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>🌙 Meelad-un-Nabi<br>Children's Program</h1>
+  <div class="card">
+    <h2>Register / Login</h2>
+    <input id="name" placeholder="Full Name">
+    <input id="phone" placeholder="Phone Number" type="tel" inputmode="numeric">
+    <input id="age" placeholder="Age" type="number" inputmode="numeric">
+    <button onclick="register()">Continue</button>
+    <p id="msg" class="small center"></p>
+  </div>
+</div>
+<script>
+const savedUser = localStorage.getItem('quiz_user');
+if (savedUser) {
+  fetch('/api/login', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ phone: JSON.parse(savedUser).phone })
+  }).then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      localStorage.setItem('quiz_user', JSON.stringify(data.user));
+      window.location.href = '/dashboard.html';
+    }).catch(() => { /* stay on registration page */ });
+}
+
+function register() {
+  const name = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const age = document.getElementById('age').value.trim();
+  const msg = document.getElementById('msg');
+  if (!name || !phone || !age) { msg.textContent = 'Please fill all fields'; return; }
+
+  fetch('/api/register', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, phone, age })
+  }).then(r => r.json()).then(data => {
+    if (data.error) { msg.textContent = data.error; return; }
+    localStorage.setItem('quiz_user', JSON.stringify(data.user));
+    window.location.href = '/dashboard.html';
+  });
+}
+</script>
+</body>
+</html>

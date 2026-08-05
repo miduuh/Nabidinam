@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Live Quiz</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>🧠 Live Quiz</h1>
+
+  <div class="card center" id="waitingCard">
+    <p>Waiting for the admin to start the next question...</p>
+    <p class="small">Stay on this screen! If you switch apps or minimize during a live question, that question will be automatically forfeited.</p>
+  </div>
+
+  <div class="card" id="questionCard" style="display:none;">
+    <div class="timer" id="timer">20</div>
+    <h2 id="qtext"></h2>
+    <div id="options"></div>
+    <p id="answeredMsg" class="small center"></p>
+  </div>
+
+  <div class="card">
+    <h2>🏆 Leaderboard</h2>
+    <div id="leaderboard"></div>
+  </div>
+
+  <button class="secondary" onclick="location.href='/dashboard.html'">← Back to Dashboard</button>
+</div>
+
+<div class="warning-overlay" id="warningOverlay">
+  <h1>⚠️ You left the quiz!</h1>
+  <p>Switching apps / tabs during a live question forfeits that question.</p>
+  <button onclick="dismissWarning()">Return to Quiz</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const user = JSON.parse(localStorage.getItem('quiz_user') || 'null');
+if (!user) window.location.href = '/index.html';
+
+const socket = io();
+let currentQuestion = null;
+let hasAnswered = false;
+let countdownInterval = null;
+
+function renderLeaderboard(list) {
+  const el = document.getElementById('leaderboard');
+  if (!list.length) { el.innerHTML = '<p class="small">No scores yet.</p>'; return; }
+  el.innerHTML = list.map(r => `
+    <div class="leaderboard-row"><span>#${r.rank} ${r.name}</span><span class="small">${r.age_group}</span></div>
+  `).join('');
+}
+
+fetch('/api/leaderboard').then(r => r.json()).then(d => renderLeaderboard(d.leaderboard));
+
+// Check if a question is already live when page loads
+fetch('/api/quiz/current').then(r => r.json()).then(d => {
+  if (d.live) showQuestion(d);
+});
+
+socket.on('question-live', (q) => {
+  hasAnswered = false;
+  showQuestion({ ...q, remaining: q.duration_seconds });
+});
+
+socket.on('question-ended', ({ id, correct_option }) => {
+  if (currentQuestion && currentQuestion.id === id) {
+    document.querySelectorAll('.option').forEach(btn => {
+      btn.disabled = true;
+      if (btn.dataset.opt === correct_option) btn.classList.add('correct');
+    });
+    document.getElementById('timer').textContent = "Time's up!";
+  }
+  clearInterval(countdownInterval);
+});
+
+socket.on('leaderboard-update', renderLeaderboard);
+
+function showQuestion(q) {
+  currentQuestion = q;
+  document.getElementById('waitingCard').style.display = 'none';
+  document.getElementById('questionCard').style.display = 'block';
+  document.getElementById('qtext').textContent = q.question_text;
+  document.getElementById('answeredMsg').textContent = '';
+
+  const optDiv = document.getElementById('options');
+  optDiv.innerHTML = '';
+  Object.entries(q.options).forEach(([key, text]) => {
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.dataset.opt = key;
+    btn.textContent = `${key.toUpperCase()}. ${text}`;
+    btn.onclick = () => selectAnswer(key);
+    optDiv.appendChild(btn);
+  });
+
+  let remaining = q.remaining;
+  document.getElementById('timer').textContent = remaining;
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    remaining--;
+    document.getElementById('timer').textContent = Math.max(0, remaining);
+    if (remaining <= 0) clearInterval(countdownInterval);
+  }, 1000);
+}
+
+function selectAnswer(key) {
+  if (hasAnswered || !currentQuestion) return;
+  hasAnswered = true;
+  document.querySelectorAll('.option').forEach(b => {
+    b.disabled = true;
+    if (b.dataset.opt === key) b.classList.add('selected');
+  });
+  document.getElementById('answeredMsg').textContent = 'Answer submitted!';
+  fetch('/api/quiz/answer', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id: user.id, question_id: currentQuestion.id, selected_option: key })
+  });
+}
+
+// ---- Anti-cheat: detect tab switch / minimize / app switch ----
+function flagLeftQuiz() {
+  if (!currentQuestion || hasAnswered) return;
+  fetch('/api/quiz/flag', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id: user.id, question_id: currentQuestion.id, event: 'left-quiz' })
+  });
+  hasAnswered = true; // lock further answering on this question
+  document.querySelectorAll('.option').forEach(b => b.disabled = true);
+  document.getElementById('answeredMsg').textContent = 'This question was forfeited (you left the quiz screen).';
+  document.getElementById('warningOverlay').style.display = 'flex';
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) flagLeftQuiz();
+});
+window.addEventListener('blur', () => {
+  // small delay avoids false positives from on-screen keyboard etc.
+  setTimeout(() => { if (document.hidden || !document.hasFocus()) flagLeftQuiz(); }, 300);
+});
+
+function dismissWarning() {
+  document.getElementById('warningOverlay').style.display = 'none';
+}
+
+// Try to request fullscreen for a more locked-down feel (best-effort; not all browsers allow auto-fullscreen)
+document.body.addEventListener('click', function tryFullscreen() {
+  if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+  document.body.removeEventListener('click', tryFullscreen);
+}, { once: true });
+</script>
+</body>
+</html>

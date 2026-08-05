@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>.wrap { max-width: 700px; }</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛠 Admin Panel</h1>
+
+  <div class="card" id="loginCard">
+    <input id="password" type="password" placeholder="Admin Password">
+    <button onclick="adminLogin()">Login</button>
+    <p id="loginMsg" class="small center"></p>
+  </div>
+
+  <div id="adminArea" style="display:none;">
+    <div class="card center">
+      <p><span id="participantCount">0</span> participants registered</p>
+      <button onclick="exportExcel()">📊 Download Results (Excel)</button>
+    </div>
+
+    <div class="card">
+      <h2>Add Question</h2>
+      <select id="category">
+        <option>Kada Prasangam</option>
+        <option>Mappila Pattu</option>
+        <option>Song</option>
+        <option>Speech</option>
+        <option>General Knowledge - Seerah</option>
+        <option>Other</option>
+      </select>
+      <input id="qtext" placeholder="Question text">
+      <input id="opta" placeholder="Option A">
+      <input id="optb" placeholder="Option B">
+      <input id="optc" placeholder="Option C">
+      <input id="optd" placeholder="Option D">
+      <select id="correct">
+        <option value="a">Correct: A</option>
+        <option value="b">Correct: B</option>
+        <option value="c">Correct: C</option>
+        <option value="d">Correct: D</option>
+      </select>
+      <input id="duration" type="number" placeholder="Duration (seconds)" value="20">
+      <button onclick="addQuestion()">Add Question</button>
+    </div>
+
+    <div class="card">
+      <h2>Question Bank</h2>
+      <div id="questionList"></div>
+    </div>
+
+    <div class="card">
+      <h2>Live Status</h2>
+      <p id="liveStatus" class="small">No question live</p>
+      <button class="secondary" onclick="stopQuiz()">⏹ Stop Current Question</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+let token = localStorage.getItem('admin_token');
+const socket = io();
+
+function headers() {
+  return { 'Content-Type': 'application/json', 'x-admin-token': token };
+}
+
+function adminLogin() {
+  const password = document.getElementById('password').value;
+  fetch('/api/admin/login', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ password })
+  }).then(r => r.json()).then(d => {
+    if (d.error) { document.getElementById('loginMsg').textContent = d.error; return; }
+    token = d.token;
+    localStorage.setItem('admin_token', token);
+    showAdminArea();
+  });
+}
+
+function showAdminArea() {
+  document.getElementById('loginCard').style.display = 'none';
+  document.getElementById('adminArea').style.display = 'block';
+  loadQuestions();
+  loadCount();
+}
+
+if (token) showAdminArea();
+
+function loadCount() {
+  fetch('/api/admin/participants-count', { headers: headers() }).then(r => r.json()).then(d => {
+    document.getElementById('participantCount').textContent = d.count;
+  });
+}
+
+function loadQuestions() {
+  fetch('/api/admin/questions', { headers: headers() }).then(r => r.json()).then(list => {
+    const el = document.getElementById('questionList');
+    el.innerHTML = list.map(q => `
+      <div class="card" style="margin-bottom:8px;">
+        <b>[${q.category}]</b> ${q.question_text}<br>
+        <span class="small">Status: ${q.status} | Duration: ${q.duration_seconds}s | Correct: ${q.correct_option.toUpperCase()}</span>
+        <div class="btn-row" style="margin-top:8px;">
+          <button onclick="startQuestion(${q.id})" ${q.status === 'live' ? 'disabled' : ''}>▶ Start Live</button>
+          <button class="secondary" onclick="deleteQuestion(${q.id})">🗑 Delete</button>
+        </div>
+      </div>
+    `).join('') || '<p class="small">No questions yet.</p>';
+  });
+}
+
+function addQuestion() {
+  const body = {
+    category: document.getElementById('category').value,
+    question_text: document.getElementById('qtext').value,
+    option_a: document.getElementById('opta').value,
+    option_b: document.getElementById('optb').value,
+    option_c: document.getElementById('optc').value,
+    option_d: document.getElementById('optd').value,
+    correct_option: document.getElementById('correct').value,
+    duration_seconds: Number(document.getElementById('duration').value) || 20
+  };
+  if (!body.question_text || !body.option_a || !body.option_b) { alert('Fill in the question and options'); return; }
+  fetch('/api/admin/questions', { method: 'POST', headers: headers(), body: JSON.stringify(body) })
+    .then(r => r.json()).then(() => {
+      ['qtext','opta','optb','optc','optd'].forEach(id => document.getElementById(id).value = '');
+      loadQuestions();
+    });
+}
+
+function deleteQuestion(id) {
+  if (!confirm('Delete this question?')) return;
+  fetch('/api/admin/questions/' + id, { method: 'DELETE', headers: headers() }).then(loadQuestions);
+}
+
+function startQuestion(id) {
+  fetch('/api/admin/quiz/start/' + id, { method: 'POST', headers: headers() }).then(() => loadQuestions());
+}
+
+function stopQuiz() {
+  fetch('/api/admin/quiz/stop', { method: 'POST', headers: headers() }).then(() => loadQuestions());
+}
+
+function exportExcel() {
+  fetch('/api/admin/export', { headers: headers() })
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'quiz_results.xlsx'; a.click();
+    });
+}
+
+socket.on('question-live', (q) => {
+  document.getElementById('liveStatus').textContent = 'LIVE: ' + q.question_text;
+  loadQuestions();
+});
+socket.on('question-ended', () => {
+  document.getElementById('liveStatus').textContent = 'No question live';
+  loadQuestions();
+});
+</script>
+</body>
+</html>

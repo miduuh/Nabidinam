@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1 id="welcome">Welcome!</h1>
+  <div class="card center">
+    <p>Choose a section:</p>
+    <button onclick="location.href='/quiz.html'">🧠 Live Quiz</button>
+    <br><br>
+    <button onclick="location.href='/swalath.html'">📿 Swalath Counter</button>
+    <br><br>
+    <button class="secondary" onclick="logout()">Switch User</button>
+  </div>
+</div>
+<script>
+const user = JSON.parse(localStorage.getItem('quiz_user') || 'null');
+if (!user) window.location.href = '/index.html';
+else document.getElementById('welcome').textContent = 'Welcome, ' + user.name + '!';
+
+function logout() {
+  localStorage.removeItem('quiz_user');
+  window.location.href = '/index.html';
+}
+</script>
+</body>
+</html>

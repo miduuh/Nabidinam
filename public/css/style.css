@@ -1,0 +1,94 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  background: linear-gradient(160deg, #0b3d2e, #14532d);
+  color: #fff;
+  min-height: 100vh;
+}
+.wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 18px 60px;
+}
+h1, h2 { text-align: center; }
+.card {
+  background: rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(4px);
+}
+input, select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  background: #eab308;
+  color: #1a1a1a;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+}
+button:active { transform: scale(0.98); }
+button.secondary { background: #ffffff33; color: #fff; }
+.btn-row { display: flex; gap: 10px; }
+.btn-row button { flex: 1; }
+.center { text-align: center; }
+.big-count {
+  font-size: 64px;
+  font-weight: bold;
+  text-align: center;
+  margin: 10px 0;
+}
+.timer {
+  font-size: 40px;
+  font-weight: bold;
+  text-align: center;
+  color: #fde047;
+}
+.option {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: #ffffff22;
+  border: 2px solid transparent;
+  color: #fff;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+.option.selected { border-color: #eab308; background: #eab30833; }
+.option.correct { border-color: #22c55e; background: #22c55e44; }
+.option.wrong { border-color: #ef4444; background: #ef444444; }
+.leaderboard-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 4px;
+  border-bottom: 1px solid #ffffff22;
+}
+.warning-overlay {
+  position: fixed; inset: 0;
+  background: rgba(139,0,0,0.95);
+  display: none;
+  align-items: center; justify-content: center;
+  flex-direction: column;
+  z-index: 999;
+  text-align: center;
+  padding: 20px;
+}
+.small { font-size: 13px; opacity: 0.8; }
+.history-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #ffffff22; font-size: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 6px; border-bottom: 1px solid #ffffff22; text-align: left; }
+a { color: #fde047; }

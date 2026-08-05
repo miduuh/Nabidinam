@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swalath Counter</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>📿 Swalath Counter</h1>
+  <div class="card center">
+    <div class="big-count" id="total">0</div>
+    <button onclick="addSwalath(1)">➕ Add Swalath</button>
+    <br><br>
+    <div class="btn-row">
+      <button class="secondary" onclick="addSwalath(10)">+10</button>
+      <button class="secondary" onclick="addSwalath(33)">+33</button>
+      <button class="secondary" onclick="addSwalath(100)">+100</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>History (last 30 days)</h2>
+    <div id="history"></div>
+  </div>
+
+  <button class="secondary" onclick="location.href='/dashboard.html'">← Back to Dashboard</button>
+</div>
+
+<script>
+const user = JSON.parse(localStorage.getItem('quiz_user') || 'null');
+if (!user) window.location.href = '/index.html';
+
+function loadData() {
+  fetch('/api/swalath/' + user.id).then(r => r.json()).then(d => {
+    document.getElementById('total').textContent = d.total;
+    const hist = document.getElementById('history');
+    if (!d.history.length) { hist.innerHTML = '<p class="small">No history yet.</p>'; return; }
+    hist.innerHTML = d.history.map(h => `<div class="history-row"><span>${h.day}</span><span>${h.total}</span></div>`).join('');
+  });
+}
+
+function addSwalath(amount) {
+  fetch('/api/swalath/' + user.id + '/add', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ amount })
+  }).then(r => r.json()).then(d => {
+    document.getElementById('total').textContent = d.total;
+    loadData();
+  });
+}
+
+loadData();
+</script>
+</body>
+</html>
