@@ -35,12 +35,14 @@ let liveQuestion = null; // { id, question_text, options, duration_seconds, star
 let liveTimer = null;
 
 function currentLeaderboard(limit = 15) {
-  // Ranked by score then speed; only names + rank exposed, never marks (per requirement)
+  // Only completed questions count. This keeps the public ranking stable while a
+  // live question is in progress, then updates it once that question is closed.
   const rows = db.prepare(`
     SELECT u.id, u.name, u.age_group,
-      COALESCE(SUM(a.is_correct), 0) as score
+      COALESCE(SUM(CASE WHEN q.status = 'closed' THEN a.is_correct ELSE 0 END), 0) as score
     FROM users u
     LEFT JOIN answers a ON a.user_id = u.id
+    LEFT JOIN questions q ON q.id = a.question_id
     GROUP BY u.id
     ORDER BY score DESC, u.id ASC
     LIMIT ?
@@ -112,7 +114,6 @@ app.post('/api/quiz/answer', (req, res) => {
     return res.status(500).json({ error: 'Could not save answer' });
   }
 
-  io.emit('leaderboard-update', currentLeaderboard());
   res.json({ ok: true, recorded: true });
 });
 
@@ -221,6 +222,18 @@ app.post('/api/admin/quiz/stop', requireAdmin, (req, res) => {
 app.get('/api/admin/participants-count', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT COUNT(*) as c FROM users').get();
   res.json({ count: row.c });
+});
+
+app.get('/api/admin/swalath-leaderboard', requireAdmin, (req, res) => {
+  const leaderboard = db.prepare(`
+    SELECT u.name, u.age_group, s.total_count
+    FROM swalath s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.total_count > 0
+    ORDER BY s.total_count DESC, u.id ASC
+    LIMIT 100
+  `).all().map((row, index) => ({ rank: index + 1, ...row }));
+  res.json({ leaderboard });
 });
 
 app.get('/api/admin/cheat-log', requireAdmin, (req, res) => {

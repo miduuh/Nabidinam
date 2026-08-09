@@ -58,8 +58,15 @@
       <p id="liveStatus" class="small">No question live</p>
       <button class="secondary" onclick="stopQuiz()">⏹ Stop Current Question</button>
     </div>
+
+    <div class="card">
+      <h2>Swalath Leaderboard</h2>
+      <p class="small">Visible only to the admin.</p>
+      <div id="swalathLeaderboard"></div>
+    </div>
   </div>
 </div>
+<footer class="site-footer"><span class="skssf-label">SKSSF</span>Cheeral Unit Committee</footer>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -88,6 +95,7 @@ function showAdminArea() {
   document.getElementById('adminArea').style.display = 'block';
   loadQuestions();
   loadCount();
+  loadSwalathLeaderboard();
 }
 
 if (token) showAdminArea();
@@ -111,6 +119,16 @@ function loadQuestions() {
         </div>
       </div>
     `).join('') || '<p class="small">No questions yet.</p>';
+  });
+}
+
+function loadSwalathLeaderboard() {
+  fetch('/api/admin/swalath-leaderboard', { headers: headers() }).then(r => r.json()).then(data => {
+    const el = document.getElementById('swalathLeaderboard');
+    const list = data.leaderboard || [];
+    el.innerHTML = list.length
+      ? list.map(row => `<div class="leaderboard-row"><span>#${row.rank} ${row.name}</span><span>${row.total_count}</span></div>`).join('')
+      : '<p class="small">No Swalath counts yet.</p>';
   });
 }
 

@@ -22,13 +22,9 @@
     <p id="answeredMsg" class="small center"></p>
   </div>
 
-  <div class="card">
-    <h2>🏆 Leaderboard</h2>
-    <div id="leaderboard"></div>
-  </div>
-
-  <button class="secondary" onclick="location.href='/dashboard.html'">← Back to Dashboard</button>
+  <button class="secondary" onclick="location.href='/dashboard.html'">← Back to Home</button>
 </div>
+<footer class="site-footer"><span class="skssf-label">SKSSF</span>Cheeral Unit Committee</footer>
 
 <div class="warning-overlay" id="warningOverlay">
   <h1>⚠️ You left the quiz!</h1>
@@ -45,16 +41,6 @@ const socket = io();
 let currentQuestion = null;
 let hasAnswered = false;
 let countdownInterval = null;
-
-function renderLeaderboard(list) {
-  const el = document.getElementById('leaderboard');
-  if (!list.length) { el.innerHTML = '<p class="small">No scores yet.</p>'; return; }
-  el.innerHTML = list.map(r => `
-    <div class="leaderboard-row"><span>#${r.rank} ${r.name}</span><span class="small">${r.age_group}</span></div>
-  `).join('');
-}
-
-fetch('/api/leaderboard').then(r => r.json()).then(d => renderLeaderboard(d.leaderboard));
 
 // Check if a question is already live when page loads
 fetch('/api/quiz/current').then(r => r.json()).then(d => {
@@ -76,8 +62,6 @@ socket.on('question-ended', ({ id, correct_option }) => {
   }
   clearInterval(countdownInterval);
 });
-
-socket.on('leaderboard-update', renderLeaderboard);
 
 function showQuestion(q) {
   currentQuestion = q;

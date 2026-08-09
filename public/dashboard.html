@@ -17,7 +17,14 @@
     <br><br>
     <button class="secondary" onclick="logout()">Switch User</button>
   </div>
+  <div class="card">
+    <h2>Quiz Leaderboard</h2>
+    <p class="small">Rankings are updated after each live question is completed.</p>
+    <div id="leaderboard"></div>
+  </div>
 </div>
+<footer class="site-footer"><span class="skssf-label">SKSSF</span>Cheeral Unit Committee</footer>
+<script src="/socket.io/socket.io.js"></script>
 <script>
 const user = JSON.parse(localStorage.getItem('quiz_user') || 'null');
 if (!user) window.location.href = '/index.html';
@@ -27,6 +34,14 @@ function logout() {
   localStorage.removeItem('quiz_user');
   window.location.href = '/index.html';
 }
+
+function renderLeaderboard(list) {
+  const el = document.getElementById('leaderboard');
+  if (!list.length) { el.innerHTML = '<p class="small">No completed quiz scores yet.</p>'; return; }
+  el.innerHTML = list.map(r => `<div class="leaderboard-row"><span>#${r.rank} ${r.name}</span><span class="small">${r.age_group}</span></div>`).join('');
+}
+fetch('/api/leaderboard').then(r => r.json()).then(d => renderLeaderboard(d.leaderboard));
+io().on('leaderboard-update', renderLeaderboard);
 </script>
 </body>
 </html>
