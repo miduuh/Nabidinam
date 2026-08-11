@@ -34,6 +34,20 @@ function ageGroupFor(age) {
 let liveQuestion = null; // { id, question_text, options, duration_seconds, startedAt }
 let liveTimer = null;
 
+function assignRanks(rows, scoreKey) {
+  let previousScore = null;
+  let rank = 0;
+  let position = 0;
+  return rows.map((row) => {
+    position += 1;
+    if (previousScore === null || row[scoreKey] !== previousScore) {
+      rank = position;
+    }
+    previousScore = row[scoreKey];
+    return { ...row, rank };
+  });
+}
+
 function currentLeaderboard(limit = 15) {
   // Only completed questions count. This keeps the public ranking stable while a
   // live question is in progress, then updates it once that question is closed.
@@ -47,7 +61,7 @@ function currentLeaderboard(limit = 15) {
     ORDER BY score DESC, u.id ASC
     LIMIT ?
   `).all(limit);
-  return rows.map((r, i) => ({ rank: i + 1, name: r.name, age_group: r.age_group }));
+  return assignRanks(rows, 'score').map((r) => ({ rank: r.rank, name: r.name, age_group: r.age_group }));
 }
 
 // ---------- Registration / Login ----------
@@ -154,7 +168,18 @@ app.post('/api/swalath/:userId/add', (req, res) => {
   `).run(userId, amount);
   db.prepare('INSERT INTO swalath_log (user_id, amount) VALUES (?, ?)').run(userId, amount);
   const row = db.prepare('SELECT total_count FROM swalath WHERE user_id = ?').get(userId);
+  io.emit('swalath-update');
   res.json({ total: row.total_count });
+});
+
+app.get('/api/admin/swalath/:userId/history', requireAdmin, (req, res) => {
+  const userId = req.params.userId;
+  const history = db.prepare(`
+    SELECT date(logged_at) AS day, SUM(amount) AS total
+    FROM swalath_log WHERE user_id = ?
+    GROUP BY day ORDER BY day DESC LIMIT 30
+  `).all(userId);
+  res.json({ history });
 });
 
 // ---------- Admin ----------
@@ -225,14 +250,15 @@ app.get('/api/admin/participants-count', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/swalath-leaderboard', requireAdmin, (req, res) => {
-  const leaderboard = db.prepare(`
-    SELECT u.name, u.age_group, s.total_count
+  const rows = db.prepare(`
+    SELECT u.id as user_id, u.name, u.age_group, s.total_count
     FROM swalath s
     JOIN users u ON u.id = s.user_id
     WHERE s.total_count > 0
     ORDER BY s.total_count DESC, u.id ASC
     LIMIT 100
-  `).all().map((row, index) => ({ rank: index + 1, ...row }));
+  `).all();
+  const leaderboard = assignRanks(rows, 'total_count');
   res.json({ leaderboard });
 });
 

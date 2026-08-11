@@ -61,8 +61,9 @@
 
     <div class="card">
       <h2>Swalath Leaderboard</h2>
-      <p class="small">Visible only to the admin.</p>
+      <p class="small">Visible only to the admin. Click a participant to see daily history.</p>
       <div id="swalathLeaderboard"></div>
+      <div id="swalathHistory" style="margin-top:16px;"></div>
     </div>
   </div>
 </div>
@@ -127,8 +128,25 @@ function loadSwalathLeaderboard() {
     const el = document.getElementById('swalathLeaderboard');
     const list = data.leaderboard || [];
     el.innerHTML = list.length
-      ? list.map(row => `<div class="leaderboard-row"><span>#${row.rank} ${row.name}</span><span>${row.total_count}</span></div>`).join('')
+      ? list.map(row => `<div class="leaderboard-row clickable" data-user-id="${row.user_id}" data-user-name="${row.name}"><span>#${row.rank} ${row.name}</span><span>${row.total_count}</span></div>`).join('')
       : '<p class="small">No Swalath counts yet.</p>';
+    document.getElementById('swalathHistory').innerHTML = '';
+  });
+}
+
+function fetchSwalathHistory(userId, name) {
+  fetch('/api/admin/swalath/' + userId + '/history', { headers: headers() }).then(r => r.json()).then(d => {
+    const el = document.getElementById('swalathHistory');
+    if (!d.history.length) {
+      el.innerHTML = `<div class="card"><h3>${name} - History</h3><p class="small">No history available.</p></div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="card">
+        <h3>${name} - History</h3>
+        ${d.history.map(h => `<div class="history-row"><span>${h.day}</span><span>${h.total}</span></div>`).join('')}
+      </div>
+    `;
   });
 }
 
@@ -181,6 +199,17 @@ socket.on('question-live', (q) => {
 socket.on('question-ended', () => {
   document.getElementById('liveStatus').textContent = 'No question live';
   loadQuestions();
+});
+socket.on('swalath-update', () => {
+  if (token) loadSwalathLeaderboard();
+});
+
+document.getElementById('swalathLeaderboard').addEventListener('click', (event) => {
+  const row = event.target.closest('.leaderboard-row.clickable');
+  if (!row) return;
+  const userId = row.dataset.userId;
+  const name = row.dataset.userName;
+  fetchSwalathHistory(userId, name);
 });
 </script>
 </body>

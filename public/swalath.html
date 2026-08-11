@@ -18,6 +18,10 @@
       <button class="secondary" onclick="addSwalath(33)">+33</button>
       <button class="secondary" onclick="addSwalath(100)">+100</button>
     </div>
+    <div style="margin-top:16px; width:100%; text-align:left; display: flex;">
+      <input id="customAmount" type="number" min="1" placeholder="Custom count" />
+      <button style="margin-top:8px;" onclick="addCustomCount()">Add Count</button>
+    </div>
   </div>
 
   <div class="card">
@@ -50,6 +54,17 @@ function addSwalath(amount) {
     document.getElementById('total').textContent = d.total;
     loadData();
   });
+}
+
+function addCustomCount() {
+  const input = document.getElementById('customAmount');
+  const amount = Math.max(1, Number(input.value) || 0);
+  if (amount < 1) {
+    alert('Enter a valid count of 1 or more.');
+    return;
+  }
+  addSwalath(amount);
+  input.value = '';
 }
 
 loadData();

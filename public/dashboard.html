@@ -11,7 +11,7 @@
   <h1 id="welcome">Welcome!</h1>
   <div class="card center">
     <p>Choose a section:</p>
-    <button onclick="location.href='/quiz.html'">🧠 Live Quiz</button>
+    <button id="liveQuizBtn" onclick="location.href='/quiz.html'">🧠 Live Quiz</button>
     <br><br>
     <button onclick="location.href='/swalath.html'">📿 Swalath Counter</button>
     <br><br>
@@ -40,8 +40,21 @@ function renderLeaderboard(list) {
   if (!list.length) { el.innerHTML = '<p class="small">No completed quiz scores yet.</p>'; return; }
   el.innerHTML = list.map(r => `<div class="leaderboard-row"><span>#${r.rank} ${r.name}</span><span class="small">${r.age_group}</span></div>`).join('');
 }
+
+function updateLiveQuizBadge(isLive) {
+  const btn = document.getElementById('liveQuizBtn');
+  if (!btn) return;
+  btn.innerHTML = isLive ? '🧠 Live Quiz <span class="badge active">LIVE</span>' : '🧠 Live Quiz';
+}
+
+fetch('/api/quiz/current').then(r => r.json()).then(d => {
+  updateLiveQuizBadge(!!d.live);
+});
+
 fetch('/api/leaderboard').then(r => r.json()).then(d => renderLeaderboard(d.leaderboard));
 io().on('leaderboard-update', renderLeaderboard);
+io().on('question-live', () => updateLiveQuizBadge(true));
+io().on('question-ended', () => updateLiveQuizBadge(false));
 </script>
 </body>
 </html>
