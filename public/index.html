@@ -8,17 +8,33 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🌙 Meelad-un-Nabi<br>Children's Program</h1>
+  <h1>
+    🌙 Haflee Meelad 2026<br>
+    <small style="font-size: 0.32em; font-weight: 500; letter-spacing: 1px;">Learn • Compete • Celebrate</small>
+  </h1>
+
   <div class="card">
     <h2>Register / Login</h2>
+
     <input id="name" placeholder="Full Name">
-    <input id="phone" placeholder="Phone Number" type="tel" inputmode="numeric">
-    <input id="age" placeholder="Age" type="number" inputmode="numeric">
-    <button onclick="register()">Continue</button>
+
+    <input
+      id="phone"
+      placeholder="Phone Number"
+      type="tel"
+      inputmode="numeric"
+    >
+
+    <button onclick="register()">Log In</button>
+
     <p id="msg" class="small center"></p>
   </div>
 </div>
 <footer class="site-footer"><span class="skssf-label">SKSSF</span>Cheeral Unit Committee</footer>
+
+<div class="help-contact small center" style="margin-top:8px;">
+  <a href="https://wa.me/+918606490401" target="_blank" rel="noopener">Contact for help: WhatsApp</a>
+</div>
 <script>
 const savedUser = localStorage.getItem('quiz_user');
 if (savedUser) {
@@ -35,13 +51,12 @@ if (savedUser) {
 function register() {
   const name = document.getElementById('name').value.trim();
   const phone = document.getElementById('phone').value.trim();
-  const age = document.getElementById('age').value.trim();
   const msg = document.getElementById('msg');
-  if (!name || !phone || !age) { msg.textContent = 'Please fill all fields'; return; }
+  if (!name || !phone) { msg.textContent = 'Please fill all fields'; return; }
 
   fetch('/api/register', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ name, phone, age })
+    body: JSON.stringify({ name, phone })
   }).then(r => r.json()).then(data => {
     if (data.error) { msg.textContent = data.error; return; }
     localStorage.setItem('quiz_user', JSON.stringify(data.user));

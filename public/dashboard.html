@@ -15,7 +15,7 @@
     <br><br>
     <button onclick="location.href='/swalath.html'">📿 Swalath Counter</button>
     <br><br>
-    <button class="secondary" onclick="logout()">Switch User</button>
+    <button class="secondary" onclick="logout()">Log Out</button>
   </div>
   <div class="card">
     <h2>Quiz Leaderboard</h2>
@@ -24,6 +24,10 @@
   </div>
 </div>
 <footer class="site-footer"><span class="skssf-label">SKSSF</span>Cheeral Unit Committee</footer>
+
+<div class="help-contact small center" style="margin-top:8px;">
+  <a href="https://wa.me/+918606490401" target="_blank" rel="noopener">Contact for help: WhatsApp</a>
+</div>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const user = JSON.parse(localStorage.getItem('quiz_user') || 'null');
@@ -38,13 +42,18 @@ function logout() {
 function renderLeaderboard(list) {
   const el = document.getElementById('leaderboard');
   if (!list.length) { el.innerHTML = '<p class="small">No completed quiz scores yet.</p>'; return; }
-  el.innerHTML = list.map(r => `<div class="leaderboard-row"><span>#${r.rank} ${r.name}</span><span class="small">${r.age_group}</span></div>`).join('');
+  el.innerHTML = list.map(r => `
+    <div class="leaderboard-row">
+      <span>#${r.rank} ${r.name}</span>
+      <span>${r.score} pts</span>
+    </div>
+  `).join('');
 }
 
 function updateLiveQuizBadge(isLive) {
   const btn = document.getElementById('liveQuizBtn');
   if (!btn) return;
-  btn.innerHTML = isLive ? '🧠 Live Quiz <span class="badge active">LIVE</span>' : '🧠 Live Quiz';
+  btn.innerHTML = isLive ? '🧠 Live Quiz <span class="badge active">●LIVE</span>' : '🧠 Live Quiz';
 }
 
 fetch('/api/quiz/current').then(r => r.json()).then(d => {

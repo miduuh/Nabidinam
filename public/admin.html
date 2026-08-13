@@ -18,21 +18,10 @@
   </div>
 
   <div id="adminArea" style="display:none;">
-    <div class="card center">
-      <p><span id="participantCount">0</span> participants registered</p>
-      <button onclick="exportExcel()">📊 Download Results (Excel)</button>
-    </div>
+   
 
     <div class="card">
       <h2>Add Question</h2>
-      <select id="category">
-        <option>Kada Prasangam</option>
-        <option>Mappila Pattu</option>
-        <option>Song</option>
-        <option>Speech</option>
-        <option>General Knowledge - Seerah</option>
-        <option>Other</option>
-      </select>
       <input id="qtext" placeholder="Question text">
       <input id="opta" placeholder="Option A">
       <input id="optb" placeholder="Option B">
@@ -65,9 +54,45 @@
       <div id="swalathLeaderboard"></div>
       <div id="swalathHistory" style="margin-top:16px;"></div>
     </div>
+
+     <div class="card center">
+
+  <p>
+    <span id="participantCount">0</span> participants registered
+  </p>
+
+  <button onclick="exportExcel()">
+    📊 Download Results (Excel)
+  </button>
+
+</div>
+
+<div class="card">
+  <h2>⚠️ Event Management</h2>
+
+  <p class="small">
+    Resetting the event will permanently delete all participant
+    registrations, answers, scores, cheating logs and Swalath data.
+    Your quiz questions will be preserved.
+  </p>
+
+  <button
+    class="secondary"
+    onclick="resetEvent()"
+    style="margin-top:10px;"
+  >
+    🗑️ Delete All Event Data
+  </button>
+
+  <p id="resetMessage" class="small center"></p>
+</div>
   </div>
 </div>
 <footer class="site-footer"><span class="skssf-label">SKSSF</span>Cheeral Unit Committee</footer>
+
+<div class="help-contact small center" style="margin-top:8px;">
+  <a href="https://wa.me/+918606490401" target="_blank" rel="noopener">Contact for help: WhatsApp</a>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -112,7 +137,7 @@ function loadQuestions() {
     const el = document.getElementById('questionList');
     el.innerHTML = list.map(q => `
       <div class="card" style="margin-bottom:8px;">
-        <b>[${q.category}]</b> ${q.question_text}<br>
+        ${q.question_text}<br>
         <span class="small">Status: ${q.status} | Duration: ${q.duration_seconds}s | Correct: ${q.correct_option.toUpperCase()}</span>
         <div class="btn-row" style="margin-top:8px;">
           <button onclick="startQuestion(${q.id})" ${q.status === 'live' ? 'disabled' : ''}>▶ Start Live</button>
@@ -137,13 +162,16 @@ function loadSwalathLeaderboard() {
 function fetchSwalathHistory(userId, name) {
   fetch('/api/admin/swalath/' + userId + '/history', { headers: headers() }).then(r => r.json()).then(d => {
     const el = document.getElementById('swalathHistory');
+    const userName = d.user?.name || name || 'Participant';
+    const phone = d.user?.phone ? `Phone: ${d.user.phone}` : 'Phone: not available';
     if (!d.history.length) {
-      el.innerHTML = `<div class="card"><h3>${name} - History</h3><p class="small">No history available.</p></div>`;
+      el.innerHTML = `<div class="card"><h3>${userName} - History</h3><p class="small">${phone}</p><p class="small">No history available.</p></div>`;
       return;
     }
     el.innerHTML = `
       <div class="card">
-        <h3>${name} - History</h3>
+        <h3>${userName} - History</h3>
+        <p class="small">${phone}</p>
         ${d.history.map(h => `<div class="history-row"><span>${h.day}</span><span>${h.total}</span></div>`).join('')}
       </div>
     `;
@@ -152,7 +180,6 @@ function fetchSwalathHistory(userId, name) {
 
 function addQuestion() {
   const body = {
-    category: document.getElementById('category').value,
     question_text: document.getElementById('qtext').value,
     option_a: document.getElementById('opta').value,
     option_b: document.getElementById('optb').value,
@@ -180,6 +207,66 @@ function startQuestion(id) {
 
 function stopQuiz() {
   fetch('/api/admin/quiz/stop', { method: 'POST', headers: headers() }).then(() => loadQuestions());
+}
+
+async function resetEvent() {
+  const firstConfirm = confirm(
+    'WARNING!\n\n' +
+    'This will permanently delete:\n\n' +
+    '• All participants\n' +
+    '• All quiz answers\n' +
+    '• All scores\n' +
+    '• All cheating logs\n' +
+    '• All Swalath counts\n' +
+    '• All Swalath history\n\n' +
+    'Your quiz questions will NOT be deleted.\n\n' +
+    'Do you want to continue?'
+  );
+
+  if (!firstConfirm) return;
+
+  const secondConfirm = confirm(
+    'FINAL CONFIRMATION\n\n' +
+    'All participant and event data will be permanently deleted.\n\n' +
+    'Click OK to reset the event.'
+  );
+
+  if (!secondConfirm) return;
+
+  const message = document.getElementById('resetMessage');
+
+  try {
+    message.textContent = 'Resetting event data...';
+
+    const response = await fetch('/api/admin/reset-event', {
+      method: 'POST',
+      headers: headers()
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || 'Reset failed');
+    }
+
+    message.textContent = '✅ Event data successfully deleted.';
+
+    // Refresh admin information
+    loadCount();
+    loadQuestions();
+    loadSwalathLeaderboard();
+
+    document.getElementById('swalathHistory').innerHTML = '';
+
+    document.getElementById('liveStatus').textContent =
+      'No question live';
+
+  } catch (error) {
+    console.error('Reset event error:', error);
+
+    message.textContent =
+      '❌ Failed to reset event data: ' + error.message;
+  }
 }
 
 function exportExcel() {

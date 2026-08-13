@@ -9,13 +9,11 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   phone TEXT UNIQUE NOT NULL,
-  age_group TEXT NOT NULL,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS questions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  category TEXT NOT NULL,
   question_text TEXT NOT NULL,
   option_a TEXT NOT NULL,
   option_b TEXT NOT NULL,
