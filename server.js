@@ -23,14 +23,6 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-function ageGroupFor(age) {
-  age = Number(age);
-  if (age <= 6) return 'Kiddies';
-  if (age <= 10) return 'Sub Junior';
-  if (age <= 14) return 'Junior';
-  return 'Senior';
-}
-
 let liveQuestion = null; // { id, question_text, options, duration_seconds, startedAt }
 let liveTimer = null;
 
@@ -52,7 +44,7 @@ function currentLeaderboard(limit = 15) {
   // Only completed questions count. This keeps the public ranking stable while a
   // live question is in progress, then updates it once that question is closed.
   const rows = db.prepare(`
-    SELECT u.id, u.name, u.age_group,
+    SELECT u.id, u.name,
       COALESCE(SUM(CASE WHEN q.status = 'closed' THEN a.is_correct ELSE 0 END), 0) as score
     FROM users u
     LEFT JOIN answers a ON a.user_id = u.id
@@ -61,12 +53,12 @@ function currentLeaderboard(limit = 15) {
     ORDER BY score DESC, u.id ASC
     LIMIT ?
   `).all(limit);
-  return assignRanks(rows, 'score').map((r) => ({ rank: r.rank, name: r.name, age_group: r.age_group }));
+  return assignRanks(rows, 'score').map((r) => ({ rank: r.rank, name: r.name, score: r.score }));
 }
 
 // ---------- Registration / Login ----------
 app.post('/api/register', (req, res) => {
-  const { name, phone, age } = req.body;
+  const { name, phone } = req.body;
   if (!name || !phone) return res.status(400).json({ error: 'Name and phone required' });
   const cleanPhone = String(phone).replace(/\D/g, '');
   if (cleanPhone.length < 8) return res.status(400).json({ error: 'Invalid phone number' });
@@ -74,8 +66,7 @@ app.post('/api/register', (req, res) => {
   const existing = db.prepare('SELECT * FROM users WHERE phone = ?').get(cleanPhone);
   if (existing) return res.json({ user: existing });
 
-  const group = ageGroupFor(age);
-  const info = db.prepare('INSERT INTO users (name, phone, age_group) VALUES (?, ?, ?)').run(name, cleanPhone, group);
+  const info = db.prepare('INSERT INTO users (name, phone) VALUES (?, ?)').run(name, cleanPhone);
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   res.json({ user });
 });
@@ -161,7 +152,20 @@ app.get('/api/swalath/:userId', (req, res) => {
 
 app.post('/api/swalath/:userId/add', (req, res) => {
   const userId = req.params.userId;
-  const amount = Math.max(1, Number(req.body.amount) || 1);
+  const amount = Number(req.body.amount) || 1;
+  if (amount < 1) return res.status(400).json({ error: 'Invalid amount' });
+  if (amount > 10000) return res.status(400).json({ error: "you can't add above 10000 a day" });
+
+  const today = db.prepare(`
+    SELECT IFNULL(SUM(amount), 0) AS total
+    FROM swalath_log
+    WHERE user_id = ? AND date(logged_at) = date('now')
+  `).get(userId).total;
+
+  if (today + amount > 10000) {
+    return res.status(400).json({ error: "you can't add above 10000 a day" });
+  }
+
   db.prepare(`
     INSERT INTO swalath (user_id, total_count) VALUES (?, ?)
     ON CONFLICT(user_id) DO UPDATE SET total_count = total_count + excluded.total_count
@@ -174,12 +178,13 @@ app.post('/api/swalath/:userId/add', (req, res) => {
 
 app.get('/api/admin/swalath/:userId/history', requireAdmin, (req, res) => {
   const userId = req.params.userId;
+  const user = db.prepare('SELECT name, phone FROM users WHERE id = ?').get(userId);
   const history = db.prepare(`
     SELECT date(logged_at) AS day, SUM(amount) AS total
     FROM swalath_log WHERE user_id = ?
     GROUP BY day ORDER BY day DESC LIMIT 30
   `).all(userId);
-  res.json({ history });
+  res.json({ user: user || { name: null, phone: null }, history });
 });
 
 // ---------- Admin ----------
@@ -193,11 +198,11 @@ app.get('/api/admin/questions', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/questions', requireAdmin, (req, res) => {
-  const { category, question_text, option_a, option_b, option_c, option_d, correct_option, duration_seconds } = req.body;
+  const { question_text, option_a, option_b, option_c, option_d, correct_option, duration_seconds } = req.body;
   const info = db.prepare(`
-    INSERT INTO questions (category, question_text, option_a, option_b, option_c, option_d, correct_option, duration_seconds)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(category, question_text, option_a, option_b, option_c, option_d, correct_option, duration_seconds || 20);
+    INSERT INTO questions (question_text, option_a, option_b, option_c, option_d, correct_option, duration_seconds)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(question_text, option_a, option_b, option_c, option_d, correct_option, duration_seconds || 20);
   res.json({ id: info.lastInsertRowid });
 });
 
@@ -249,9 +254,66 @@ app.get('/api/admin/participants-count', requireAdmin, (req, res) => {
   res.json({ count: row.c });
 });
 
+// Reset all event/participant data while keeping the question bank
+app.post('/api/admin/reset-event', requireAdmin, (req, res) => {
+  try {
+    // Stop any currently running question
+    if (liveTimer) {
+      clearTimeout(liveTimer);
+      liveTimer = null;
+    }
+
+    if (liveQuestion) {
+      io.emit('question-ended', {
+        id: liveQuestion.id
+      });
+    }
+
+    liveQuestion = null;
+
+    // Delete event/participant data.
+    // Questions are intentionally preserved.
+    const reset = db.transaction(() => {
+      db.prepare('DELETE FROM answers').run();
+      db.prepare('DELETE FROM cheat_log').run();
+      db.prepare('DELETE FROM swalath_log').run();
+      db.prepare('DELETE FROM swalath').run();
+      db.prepare('DELETE FROM users').run();
+
+      // Reset question status so the existing question bank
+      // is ready for the next event.
+      db.prepare(`
+        UPDATE questions
+        SET status = 'draft',
+            started_at = NULL
+      `).run();
+    });
+
+    reset();
+
+    // Notify connected clients
+    io.emit('leaderboard-update', []);
+    io.emit('swalath-update');
+    io.emit('event-reset');
+
+    res.json({
+      ok: true,
+      message: 'Event data reset successfully. Questions were preserved.'
+    });
+
+  } catch (error) {
+    console.error('Reset event error:', error);
+
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to reset event data'
+    });
+  }
+});
+
 app.get('/api/admin/swalath-leaderboard', requireAdmin, (req, res) => {
   const rows = db.prepare(`
-    SELECT u.id as user_id, u.name, u.age_group, s.total_count
+    SELECT u.id as user_id, u.name, s.total_count
     FROM swalath s
     JOIN users u ON u.id = s.user_id
     WHERE s.total_count > 0
@@ -286,8 +348,7 @@ app.get('/api/admin/export', requireAdmin, async (req, res) => {
 
   const columns = [
     { header: 'Name', key: 'name', width: 22 },
-    { header: 'Phone', key: 'phone', width: 15 },
-    { header: 'Age Group', key: 'age_group', width: 12 }
+    { header: 'Phone', key: 'phone', width: 15 }
   ];
   questions.forEach(q => {
     columns.push({ header: `Q${q.id}: ${q.question_text.slice(0, 30)}`, key: `q_${q.id}`, width: 20 });
@@ -296,7 +357,7 @@ app.get('/api/admin/export', requireAdmin, async (req, res) => {
   sheet.columns = columns;
 
   users.forEach(u => {
-    const row = { name: u.name, phone: u.phone, age_group: u.age_group };
+    const row = { name: u.name, phone: u.phone };
     let total = 0;
     questions.forEach(q => {
       const a = answerMap[u.id] && answerMap[u.id][q.id];

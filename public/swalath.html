@@ -20,7 +20,7 @@
     </div>
     <div style="margin-top:16px; width:100%; text-align:left; display: flex;">
       <input id="customAmount" type="number" min="1" placeholder="Custom count" />
-      <button style="margin-top:8px;" onclick="addCustomCount()">Add Count</button>
+      <button style="margin-left:20px; margin-bottom:14px;" onclick="addCustomCount()">Add Count</button>
     </div>
   </div>
 
@@ -31,7 +31,12 @@
 
   <button class="secondary" onclick="location.href='/dashboard.html'">← Back to Home</button>
 </div>
+<div id="toast" class="toast" aria-live="polite"></div>
 <footer class="site-footer"><span class="skssf-label">SKSSF</span>Cheeral Unit Committee</footer>
+
+<div class="help-contact small center" style="margin-top:8px;">
+  <a href="https://wa.me/+918606490401" target="_blank" rel="noopener">Contact for help: WhatsApp</a>
+</div>
 
 <script>
 const user = JSON.parse(localStorage.getItem('quiz_user') || 'null');
@@ -46,21 +51,40 @@ function loadData() {
   });
 }
 
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('visible');
+  clearTimeout(window.toastTimer);
+  window.toastTimer = setTimeout(() => toast.classList.remove('visible'), 3200);
+}
+
 function addSwalath(amount) {
   fetch('/api/swalath/' + user.id + '/add', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ amount })
-  }).then(r => r.json()).then(d => {
+  }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) {
+      showToast(d.error || 'Failed to add count');
+      return;
+    }
     document.getElementById('total').textContent = d.total;
     loadData();
+  }).catch(() => {
+    showToast('Network error. Try again.');
   });
 }
 
 function addCustomCount() {
   const input = document.getElementById('customAmount');
-  const amount = Math.max(1, Number(input.value) || 0);
+  const amount = Number(input.value) || 0;
   if (amount < 1) {
-    alert('Enter a valid count of 1 or more.');
+    showToast('Enter a valid count of 1 or more.');
+    return;
+  }
+  if (amount > 10000) {
+    showToast("You can't add above 10000 a day");
     return;
   }
   addSwalath(amount);
