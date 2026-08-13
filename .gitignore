@@ -1,1 +1,9 @@
 node_modules/
+data.sqlite-shm.bak
+data.sqlite-wal.bak
+data.sqlite.bak
+migrate-remove-columns.js
+0
+data.sqlite
+data.sqlite-shm
+data.sqlite-wal
