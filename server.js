@@ -486,6 +486,38 @@ app.post('/api/swalath/:userId/add', async (req, res) => {
   }
 });
 
+app.get('/api/swalath/leaderboard', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        u.id AS user_id,
+        u.name,
+        s.total_count
+      FROM swalath s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.total_count > 0
+      ORDER BY s.total_count DESC, u.id ASC
+      LIMIT 100
+    `);
+
+    const rows = result.rows.map(row => ({
+      ...row,
+      total_count: Number(row.total_count)
+    }));
+
+    res.json({
+      leaderboard: assignRanks(rows, 'total_count')
+    });
+
+  } catch (error) {
+    console.error('Public Swalath leaderboard error:', error);
+
+    res.status(500).json({
+      error: 'Could not load Swalath leaderboard'
+    });
+  }
+});
+
 app.get(
   '/api/admin/swalath/:userId/history',
   requireAdmin,
