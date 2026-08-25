@@ -3,35 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Swalath Counter</title>
+<title>Swalath Campaign</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div class="wrap">
-  <h1>📿 Swalath Counter</h1>
+  <h1>📿 Swalath Campaign</h1>
+
   <div class="card center">
-    <div class="big-count" id="total">0</div>
-    <button onclick="addSwalath(1)">➕ Add Swalath</button>
-    <br><br>
-    <div class="btn-row">
-      <button class="secondary" onclick="addSwalath(10)">+10</button>
-      <button class="secondary" onclick="addSwalath(33)">+33</button>
-      <button class="secondary" onclick="addSwalath(100)">+100</button>
-    </div>
-    <div style="margin-top:16px; width:100%; text-align:left; display: flex;">
-      <input id="customAmount" type="number" min="1" placeholder="Custom count" />
-      <button style="margin-left:20px; margin-bottom:14px;" onclick="addCustomCount()">Add Count</button>
-    </div>
+    <h2>Campaign Ended</h2>
+    <p class="small" style="margin: 0 0 12px; line-height: 1.6;">
+      Thank you for participating in the Swalath campaign. The counting phase has now ended.
+      We appreciate your contribution and support.
+    </p>
   </div>
 
   <div class="card">
-    <h2>History (last 30 days)</h2>
-    <div id="history"></div>
+    <h2>Swalath Leaderboard</h2>
+    <div id="leaderboard"></div>
   </div>
 
   <button class="secondary" onclick="location.href='/dashboard.html'">← Back to Home</button>
 </div>
-<div id="toast" class="toast" aria-live="polite"></div>
+
 <footer class="site-footer"><span class="skssf-label">SKSSF</span>Cheeral Unit Committee</footer>
 
 <div class="help-contact small center" style="margin-top:8px;">
@@ -39,59 +33,27 @@
 </div>
 
 <script>
-const user = JSON.parse(localStorage.getItem('quiz_user') || 'null');
-if (!user) window.location.href = '/index.html';
-
-function loadData() {
-  fetch('/api/swalath/' + user.id).then(r => r.json()).then(d => {
-    document.getElementById('total').textContent = d.total;
-    const hist = document.getElementById('history');
-    if (!d.history.length) { hist.innerHTML = '<p class="small">No history yet.</p>'; return; }
-    hist.innerHTML = d.history.map(h => `<div class="history-row"><span>${h.day}</span><span>${h.total}</span></div>`).join('');
-  });
+function loadLeaderboard() {
+  fetch('/api/swalath/leaderboard')
+    .then(r => r.json())
+    .then(data => {
+      const leaderboard = data.leaderboard || [];
+      const el = document.getElementById('leaderboard');
+      el.innerHTML = leaderboard.length
+        ? leaderboard.map(row => `
+            <div class="leaderboard-row">
+              <span>#${row.rank} ${row.name}</span>
+              <span>${row.total_count}</span>
+            </div>
+          `).join('')
+        : '<p class="small">No Swalath counts yet.</p>';
+    })
+    .catch(() => {
+      document.getElementById('leaderboard').innerHTML = '<p class="small">Unable to load leaderboard right now.</p>';
+    });
 }
 
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.classList.add('visible');
-  clearTimeout(window.toastTimer);
-  window.toastTimer = setTimeout(() => toast.classList.remove('visible'), 3200);
-}
-
-function addSwalath(amount) {
-  fetch('/api/swalath/' + user.id + '/add', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ amount })
-  }).then(async r => {
-    const d = await r.json();
-    if (!r.ok) {
-      showToast(d.error || 'Failed to add count');
-      return;
-    }
-    document.getElementById('total').textContent = d.total;
-    loadData();
-  }).catch(() => {
-    showToast('Network error. Try again.');
-  });
-}
-
-function addCustomCount() {
-  const input = document.getElementById('customAmount');
-  const amount = Number(input.value) || 0;
-  if (amount < 1) {
-    showToast('Enter a valid count of 1 or more.');
-    return;
-  }
-  if (amount > 10000) {
-    showToast("You can't add above 10000 a day");
-    return;
-  }
-  addSwalath(amount);
-  input.value = '';
-}
-
-loadData();
+loadLeaderboard();
 </script>
 </body>
 </html>
