@@ -50,8 +50,8 @@ function assignRanks(rows, scoreKey) {
   });
 }
 
-async function currentLeaderboard(limit = 15) {
-  const result = await pool.query(`
+async function currentLeaderboard(limit = null) {
+  const query = `
     SELECT
       u.id,
       u.name,
@@ -69,8 +69,10 @@ async function currentLeaderboard(limit = 15) {
     LEFT JOIN questions q ON q.id = a.question_id
     GROUP BY u.id, u.name
     ORDER BY score DESC, u.id ASC
-    LIMIT $1
-  `, [limit]);
+    ${limit ? 'LIMIT $1' : ''}
+  `;
+
+  const result = await pool.query(query, limit ? [limit] : []);
 
   const rows = result.rows.map(row => ({
     ...row,
